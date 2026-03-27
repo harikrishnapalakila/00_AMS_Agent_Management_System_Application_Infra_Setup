@@ -170,6 +170,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
   enable_auto_scaling   = true
   min_count             = 1
   max_count             = 5
+   lifecycle {
+    ignore_changes = [node_count]
+  }
 }
 
 # 5. Databases: SQL & Cosmos DB
