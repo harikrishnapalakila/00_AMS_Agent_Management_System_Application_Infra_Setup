@@ -154,6 +154,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
   # Ensure the cluster type supports autoscaling
   # (Requires standard SKU load balancer and VirtualMachineScaleSets type)
   network_profile {
+    # Add this line - "azure" is standard for AKS CNI
+    network_plugin     = "azure" 
     load_balancer_sku = "standard"
   }
 }
