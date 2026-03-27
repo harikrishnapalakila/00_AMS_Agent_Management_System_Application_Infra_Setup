@@ -1,0 +1,48 @@
+name: "Terraform-Apply-for_Enterprise_LMS_Application_deploying-On-Azure-Cloud"
+
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+
+jobs:
+  # 1. DEPLOYMENT JOB
+  Blue_BlueField_Deployment:
+    name: "Terraform - Infrastructure Deployment - By HARIKRISHNA PALAKILA"
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        #run: terraform -chdir="../Azure_Cloud_Deployment/Infra_IAC/" init
+        run: terraform -chdir="../00_AMS_Agent_Management_System_Application_Infra_Setup/" init
+             
+      - name: Terraform Plan
+        #run: terraform -chdir="../Azure_Cloud_Deployment/Infra_IAC/" plan -no-color > plan_output.txt 2>&1
+        run: terraform -chdir="../00_AMS_Agent_Management_System_Application_Infra_Setup/" plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        #run: terraform -chdir="../Azure_Cloud_Deployment/Infra_IAC/" apply -auto-approve -no-color > apply_output.txt 2>&1
+        run: terraform -chdir="../00_AMS_Agent_Management_System_Application_Infra_Setup/" apply -auto-approve
+
