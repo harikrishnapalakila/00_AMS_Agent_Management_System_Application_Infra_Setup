@@ -29,16 +29,12 @@ provider "azurerm" {
 }
 provider "time" {}
 
-
-# 1. Provider and Resource Group
-provider "azurerm" {
-  features {}
-}
-
 resource "azurerm_resource_group" "main" {
-  name     = "RG-EDJ-Enterprise-LMS-Application
+  name     = "RG-EDJ-Enterprise-LMS-Application"
   location = "East US"
 }
+
+data "azurerm_client_config" "current" {}
 
 # 2. Key Vault (Secure credential storage)
 resource "azurerm_key_vault" "kv" {
@@ -57,46 +53,112 @@ resource "azurerm_virtual_network" "vnet" {
   address_space       = ["10.0.0.0/16"]
 }
 
+# --- 1. Network Prep for App Gateway ---
+resource "azurerm_public_ip" "pip" {
+  name                = "appgw-pip"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+resource "azurerm_subnet" "gw_subnet" {
+  name                 = "gw-subnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+# --- 2. Fixed Application Gateway ---
 resource "azurerm_application_gateway" "appgw" {
   name                = "appgw-ingress"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  # configuration for frontend/backend/http_listener goes here
+
+  sku {
+    name     = "Standard_v2"
+    tier     = "Standard_v2"
+    capacity = 2
+  }
+
+  gateway_ip_configuration {
+    name      = "my-gateway-ip-config"
+    subnet_id = azurerm_subnet.gw_subnet.id
+  }
+
+  frontend_port {
+    name = "http-port"
+    port = 80
+  }
+
+  frontend_ip_configuration {
+    name                 = "frontend-ip-config"
+    public_ip_address_id = azurerm_public_ip.pip.id
+  }
+
+  backend_address_pool {
+    name = "app-backend-pool"
+  }
+
+  backend_http_settings {
+    name                  = "http-settings"
+    cookie_based_affinity = "Disabled"
+    port                  = 80
+    protocol              = "Http"
+    request_timeout       = 60
+  }
+
+  http_listener {
+    name                           = "http-listener"
+    frontend_ip_configuration_name = "frontend-ip-config"
+    frontend_port_name             = "http-port"
+    protocol                       = "Http"
+  }
+
+  request_routing_rule {
+    name                       = "rule1"
+    rule_type                  = "Basic"
+    http_listener_name         = "http-listener"
+    backend_address_pool_name  = "app-backend-pool"
+    backend_http_settings_name = "http-settings"
+    priority                   = 1
+  }
 }
 
-# 4. Azure Kubernetes Service (AKS)
+
+# --- 3. Fixed AKS Cluster ---
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "aks-cluster"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   dns_prefix          = "aksapp"
 
-  default_node_pool {
-    name                = "system"
-    node_count          = 2
-    vm_size             = "Standard_DS2_v2"
-    type                = "VirtualMachineScaleSets"
-    enable_auto_scaling = true
-    min_count           = 3
-    max_count           = 5
-    node_count          = 3 # Initial count
-
+  # Identity block must be OUTSIDE the default_node_pool
   identity {
     type = "SystemAssigned"
   }
-}
+
+  default_node_pool {
+    name                = "system"
+    node_count          = 1
+    vm_size             = "Standard_DS2_v2"
+    # Note: enable_auto_scaling belongs INSIDE default_node_pool
+    #enable_auto_scaling = true
+    min_count           = 1
+    max_count           = 3
+  }
 }
 
+# --- 4. Fixed Secondary Node Pool ---
 resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
   name                  = "userapps"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = "Standard_D4s_v5"
-  # ... scaling and mode settings ...
-  # Enable Autoscaling
-  enable_auto_scaling   = true
+  # FIXED: Reference changed from .main.id to .aks.id
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
+  vm_size               = "Standard_DS2_v2"
+  node_count            = 1
+  #enable_auto_scaling   = true
   min_count             = 1
-  max_count             = 10
-  node_count            = 2
+  max_count             = 5
 }
 
 # 5. Databases: SQL & Cosmos DB
