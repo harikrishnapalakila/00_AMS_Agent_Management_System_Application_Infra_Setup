@@ -31,7 +31,7 @@ provider "time" {}
 
 resource "azurerm_resource_group" "main" {
   name     = "RG-EDJ-Enterprise-LMS-Application"
-  location = "East US"
+  location = "East US2"
 }
 
 data "azurerm_client_config" "current" {}
@@ -142,10 +142,20 @@ resource "azurerm_kubernetes_cluster" "aks" {
     name                = "system"
     node_count          = 1
     vm_size             = "Standard_DS2_v2"
-    # Note: enable_auto_scaling belongs INSIDE default_node_pool
-    #enable_auto_scaling = true
-    min_count           = 1
-    max_count           = 3
+    # 1. Enable autoscaling
+    auto_scaling_enabled = true
+
+    # 2. Define the scaling range
+    min_count            = 1
+    max_count            = 3
+
+    # 3. Optional: Set initial node count (must be between min and max)
+    node_count           = 1 
+  }
+  # Ensure the cluster type supports autoscaling
+  # (Requires standard SKU load balancer and VirtualMachineScaleSets type)
+  network_profile {
+    load_balancer_sku = "standard"
   }
 }
 
@@ -156,7 +166,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
   vm_size               = "Standard_DS2_v2"
   node_count            = 1
-  #enable_auto_scaling   = true
+  enable_auto_scaling   = true
   min_count             = 1
   max_count             = 5
 }
