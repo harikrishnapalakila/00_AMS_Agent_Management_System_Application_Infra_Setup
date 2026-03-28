@@ -190,7 +190,7 @@ resource "azurerm_mysql_flexible_server" "example" {
   version                = "8.0.21"
 
   # AzureRM 4.0 Naming: Use 'enabled' suffix
-  public_network_access_enabled = true
+  #public_network_access_enabled = true
   
   storage {
     size_gb           = 20
@@ -204,7 +204,7 @@ resource "azurerm_mysql_flexible_server" "example" {
 resource "azurerm_mysql_flexible_database" "example" {
   name                = "app_db"
   resource_group_name = azurerm_resource_group.main.name
-  server_name         = azurerm_mysql_flexible_server.main.name
+  server_name         = azurerm_mysql_flexible_server.example.name
   charset             = "utf8mb4"
   collation           = "utf8mb4_unicode_ci"
 }
