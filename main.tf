@@ -180,8 +180,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
 # 3. MySQL Flexible Server
 resource "azurerm_mysql_flexible_server" "example" {
   name                   = "unique-mysql-server-40"
-  resource_group_name    = azurerm_resource_group.example.name
-  location               = azurerm_resource_group.example.location
+  resource_group_name    = azurerm_resource_group.main.name
+  location               = azurerm_resource_group.main.location
   administrator_login    = "mysqladmin"
   administrator_password = "ComplexPassword123!" # Use a secret manager for production
   
@@ -203,8 +203,8 @@ resource "azurerm_mysql_flexible_server" "example" {
 # 4. MySQL Flexible Database
 resource "azurerm_mysql_flexible_database" "example" {
   name                = "app_db"
-  resource_group_name = azurerm_resource_group.example.name
-  server_name         = azurerm_mysql_flexible_server.example.name
+  resource_group_name = azurerm_resource_group.main.name
+  server_name         = azurerm_mysql_flexible_server.main.name
   charset             = "utf8mb4"
   collation           = "utf8mb4_unicode_ci"
 }
