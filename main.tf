@@ -31,7 +31,7 @@ provider "time" {}
 
 resource "azurerm_resource_group" "main" {
   name     = "RG-EDJ-Enterprise-LMS-Application"
-  location = "East US2"
+  location = "CentralUS"
 }
 
 data "azurerm_client_config" "current" {}
@@ -165,7 +165,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
   name                  = "userapps"
   # FIXED: Reference changed from .main.id to .aks.id
   kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-  vm_size               = "Standard_DS2_v2"
+  vm_size               = "Standard_DS2_v3"
   #node_count            = 1
   auto_scaling_enabled   = true
   min_count             = 1
@@ -175,11 +175,47 @@ resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
   }
 }
 
+############## Azure Databases MY SQL for Flexible server ##########
+
+# 3. MySQL Flexible Server
+resource "azurerm_mysql_flexible_server" "example" {
+  name                   = "unique-mysql-server-40"
+  resource_group_name    = azurerm_resource_group.example.name
+  location               = azurerm_resource_group.example.location
+  administrator_login    = "mysqladmin"
+  administrator_password = "ComplexPassword123!" # Use a secret manager for production
+  
+  # Available SKU in East US 2 (verified from your previous error)
+  sku_name               = "GP_Standard_D2ds_v4"
+  version                = "8.0.21"
+
+  # AzureRM 4.0 Naming: Use 'enabled' suffix
+  public_network_access_enabled = true
+  
+  storage {
+    size_gb           = 20
+    auto_grow_enabled = true
+  }
+
+  backup_retention_days = 7
+}
+
+# 4. MySQL Flexible Database
+resource "azurerm_mysql_flexible_database" "example" {
+  name                = "app_db"
+  resource_group_name = azurerm_resource_group.example.name
+  server_name         = azurerm_mysql_flexible_server.example.name
+  charset             = "utf8mb4"
+  collation           = "utf8mb4_unicode_ci"
+}
+
+#################################
+
 # 5. Databases: SQL & Cosmos DB
 resource "azurerm_mssql_server" "sqlserver" {
   name                         = "sql-server-app"
   resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
+  location                     = "centralus"
   version                      = "12.0"
   administrator_login          = "sqladmin"
   administrator_login_password = "SecurePassword123!"
