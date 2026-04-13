@@ -126,55 +126,6 @@ resource "azurerm_application_gateway" "appgw" {
 }
 
 
-# --- 3. Fixed AKS Cluster ---
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "aks-cluster"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  dns_prefix          = "aksapp"
-
-  # Identity block must be OUTSIDE the default_node_pool
-  identity {
-    type = "SystemAssigned"
-  }
-
-  default_node_pool {
-    name                = "system"
-    vm_size             = "standard_b2als_v2"
-    # 1. Enable autoscaling
-    auto_scaling_enabled = true
-
-    # 2. Define the scaling range
-    min_count            = 1
-    max_count            = 3
-
-    # 3. Optional: Set initial node count (must be between min and max)
-    node_count           = 1 
-  }
-  # Ensure the cluster type supports autoscaling
-  # (Requires standard SKU load balancer and VirtualMachineScaleSets type)
-  network_profile {
-    # Add this line - "azure" is standard for AKS CNI
-    network_plugin     = "azure" 
-    load_balancer_sku = "standard"
-  }
-}
-
-# --- 4. Fixed Secondary Node Pool ---
-resource "azurerm_kubernetes_cluster_node_pool" "user_apps" {
-  name                  = "userapps"
-  # FIXED: Reference changed from .main.id to .aks.id
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks.id
-  vm_size               = "Standard_DS2_v3"
-  #node_count            = 1
-  auto_scaling_enabled   = true
-  min_count             = 1
-  max_count             = 5
-   lifecycle {
-    ignore_changes = [node_count]
-  }
-}
-
 ############## Azure Databases MY SQL for Flexible server ##########
 
 # 3. MySQL Flexible Server
@@ -235,6 +186,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
     failover_priority = 0
   }
 }
+
 
 # 6. AI Services: OpenAI & Document Intelligence
 resource "azurerm_cognitive_account" "openai" {
